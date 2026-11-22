@@ -18,7 +18,9 @@ export function calculate(item, platform={}, priceOverride) {
   const packing = number(item.packing)/(item.packingBasis === 'order' ? qtyPerOrder : 1);
   const other = number(item.other)/(item.otherBasis === 'order' ? qtyPerOrder : 1);
   const adFixed = number(item.adFixed)/(item.adFixedBasis === 'order' ? qtyPerOrder : 1);
-  const costGoods = number(item.cost);
+  const purchaseQty = Math.max(1, Math.floor(number(item.quantity) || 1));
+  const purchaseShippingPerUnit = number(item.purchaseShipping || 0)/purchaseQty;
+  const costGoods = number(item.cost) + purchaseShippingPerUnit;
   const fees = rate(platform.fee);
   const card = platform.cardIncluded ? 0 : rate(platform.card);
   const ad = item.adMode === 'percent' ? rate(item.adPercent) : 0;
@@ -43,14 +45,14 @@ export function calculate(item, platform={}, priceOverride) {
   const totalCost=costGoods+otherCost+platformFee+cardFee+taxReserve;
   const profit=revenue-totalCost;
   const margin=revenue>0 ? profit/revenue*100 : null;
-  return {p,revenue,profit,margin,units,qtyPerOrder,buyerShip,costGoods,platformFee,cardFee,otherCost,taxReserve,totalCost,
+  return {p,revenue,profit,margin,units,qtyPerOrder,buyerShip,costGoods,purchaseShippingPerUnit,platformFee,cardFee,otherCost,taxReserve,totalCost,
     totalRevenue:revenue*units,totalCostAll:totalCost*units,totalProfit:profit*units,
     fixed,variable,breakeven:solve(0),goal:solve(rate(item.targetMargin)),
     goals:[10,15,20,25,30].map(m=>({margin:m,...solve(m/100)}))};
 }
 export function validate(item, platform) {
   const errors=[];
-  const moneyFields=['cost','price','quantity','unitsPerOrder','packing','shipping','buyerShipping','other','adFixed'];
+  const moneyFields=['cost','purchaseShipping','price','quantity','unitsPerOrder','packing','shipping','buyerShipping','other','adFixed'];
   for (const key of moneyFields) if (!Number.isFinite(number(item[key])) || number(item[key])<0) errors.push(`${key}: 음수 또는 잘못된 금액`);
   if (number(item.quantity)<1 || !Number.isInteger(number(item.quantity))) errors.push('판매 수량은 1 이상의 정수여야 합니다.');
   if (number(item.unitsPerOrder)<1 || !Number.isInteger(number(item.unitsPerOrder))) errors.push('주문당 수량은 1 이상의 정수여야 합니다.');
