@@ -12,7 +12,7 @@ const rate = x => number(x)/100;
 export function calculate(item, platform={}, priceOverride) {
   const p = priceOverride === undefined ? number(item.price) : number(priceOverride);
   const qtyPerOrder = Math.max(1, Math.floor(number(item.unitsPerOrder) || 1));
-  const units = Math.max(1, Math.floor(number(item.quantity) || 1));
+  const units = Math.max(1, Math.floor(number(item.salesQuantity ?? item.quantity) || 1));
   const buyerShip = number(item.buyerShipping)/qtyPerOrder;
   const sellerShip = number(item.shipping)/qtyPerOrder;
   const packing = number(item.packing)/(item.packingBasis === 'order' ? qtyPerOrder : 1);
@@ -45,16 +45,17 @@ export function calculate(item, platform={}, priceOverride) {
   const totalCost=costGoods+otherCost+platformFee+cardFee+taxReserve;
   const profit=revenue-totalCost;
   const margin=revenue>0 ? profit/revenue*100 : null;
-  return {p,revenue,profit,margin,units,qtyPerOrder,buyerShip,costGoods,purchaseShippingPerUnit,platformFee,cardFee,otherCost,taxReserve,totalCost,
+  return {p,revenue,profit,margin,units,purchaseQty,qtyPerOrder,buyerShip,costGoods,purchaseShippingPerUnit,platformFee,cardFee,otherCost,taxReserve,totalCost,
     totalRevenue:revenue*units,totalCostAll:totalCost*units,totalProfit:profit*units,
     fixed,variable,breakeven:solve(0),goal:solve(rate(item.targetMargin)),
     goals:[10,15,20,25,30].map(m=>({margin:m,...solve(m/100)}))};
 }
 export function validate(item, platform) {
   const errors=[];
-  const moneyFields=['cost','purchaseShipping','price','quantity','unitsPerOrder','packing','shipping','buyerShipping','other','adFixed'];
+  const moneyFields=['cost','purchaseShipping','price','quantity','salesQuantity','unitsPerOrder','packing','shipping','buyerShipping','other','adFixed'];
   for (const key of moneyFields) if (!Number.isFinite(number(item[key])) || number(item[key])<0) errors.push(`${key}: 음수 또는 잘못된 금액`);
-  if (number(item.quantity)<1 || !Number.isInteger(number(item.quantity))) errors.push('판매 수량은 1 이상의 정수여야 합니다.');
+  if (number(item.quantity)<1 || !Number.isInteger(number(item.quantity))) errors.push('예상 구매 수량은 1 이상의 정수여야 합니다.');
+  if (item.salesQuantity !== undefined && (number(item.salesQuantity)<1 || !Number.isInteger(number(item.salesQuantity)))) errors.push('예상 판매 수량은 1 이상의 정수여야 합니다.');
   if (number(item.unitsPerOrder)<1 || !Number.isInteger(number(item.unitsPerOrder))) errors.push('주문당 수량은 1 이상의 정수여야 합니다.');
   for (const [name,v] of [['플랫폼 수수료',platform.fee],['카드 수수료',platform.card],['광고비율',item.adPercent],['세금 적립률',item.taxReserve],['목표 마진율',item.targetMargin]]) if (!validRate(v)) errors.push(`${name}은 0~100%만 입력할 수 있습니다.`);
   return errors;
