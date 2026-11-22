@@ -16,7 +16,7 @@ export function setBreakdown(item) {
   const shipping=rows.reduce((sum,r)=>sum+number(r.shipping),0);
   const perSetShipping=setCount>0?shipping/setCount:0;
   return {materials,shipping,setCount,perSetShipping,totalPurchase:materials+shipping,totalPacking:setCount*number(item.kitPacking),
-    grandTotal:materials+shipping+setCount*number(item.kitPacking),materialCostPerSet:materials+perSetShipping};
+    grandTotal:materials+shipping+setCount*number(item.kitPacking),materialCostPerSet:setCount>0?(materials+shipping)/setCount:0};
 }
 export function effectiveItem(item) {
   if(item.mode!=='set')return item;
@@ -74,7 +74,7 @@ export function validate(item, platform) {
     if(number(item.kitSetCount)<1||!Number.isInteger(number(item.kitSetCount)))errors.push('제작할 세트 수량은 1 이상의 정수여야 합니다.');
     if(number(item.kitPacking)<0)errors.push('세트당 포장비는 0원 이상이어야 합니다.');
     for(const [i,r] of rows.entries()){
-      if(!Number.isInteger(number(r.qty))||number(r.qty)<1)errors.push(`구성품 ${i+1}의 세트당 수량은 1 이상의 정수여야 합니다.`);
+      if(!Number.isInteger(number(r.qty))||number(r.qty)<1)errors.push(`구성품 ${i+1}의 구매 수량은 1 이상의 정수여야 합니다.`);
       if(number(r.cost)<0||number(r.shipping)<0)errors.push(`구성품 ${i+1}의 매입가·배송비를 확인하세요.`);
     }
   }

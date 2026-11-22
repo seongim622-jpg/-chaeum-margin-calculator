@@ -21,7 +21,7 @@ function renderInputs(){
  field('상품명 (저장할 때만 입력)','name','text',null,true),
  field('판매 플랫폼','platform','select',PLATFORMS.map(x=>[x,x]),true),
  field('상품 유형','mode','select',[['single','단일상품'],['set','세트상품']],true),
- ...(set?[field('현재 예상 세트 판매가 (원 · 선택)','price')]:[
+ ...(set?[field('세트 1개 예상 판매가 (원 · 선택)','price')]:[
  field('개당 상품 매입가 (원)','cost'),
  field('예상 구매 수량 (개) · 매입 배송비를 나누는 수량','quantity'),
  field('매입 시 총 배송비 (원) · 전체 구매분 1회 배송비','purchaseShipping','money',null,true),
@@ -38,22 +38,22 @@ function renderKit(){
  const rows=(state.item.kitItems||[]).map((r,i)=>`<div class="kitRow" data-kit-row="${safe(r.id)}">
  <label class="kitName"><span class="srOnly">구성품명 ${i+1}</span><input data-kit-field="name" type="text" lang="ko" inputmode="text" autocapitalize="off" autocomplete="off" spellcheck="false" value="${safe(r.name)}" placeholder="구성품명"></label>
  <label><span class="srOnly">개당 원가 ${i+1}</span><input data-kit-field="cost" inputmode="decimal" value="${safe(number(r.cost).toLocaleString('ko-KR'))}"></label>
- <label><span class="srOnly">세트당 수량 ${i+1}</span><input data-kit-field="qty" inputmode="numeric" value="${safe(number(r.qty).toLocaleString('ko-KR'))}"></label>
+ <label><span class="srOnly">구매 수량 ${i+1}</span><input data-kit-field="qty" inputmode="numeric" value="${safe(number(r.qty).toLocaleString('ko-KR'))}"></label>
  <label><span class="srOnly">해당 구성품 총 매입 배송비 ${i+1}</span><input data-kit-field="shipping" inputmode="decimal" value="${safe(number(r.shipping).toLocaleString('ko-KR'))}"></label>
  <button class="kitRemove" data-kit-remove="${safe(r.id)}" aria-label="구성품 삭제">×</button></div>`).join('');
- el('kitPanel').innerHTML=`<h2>세트상품 원가 계산</h2><p class="muted">구성품을 추가하면 세트 1개의 원가가 자동으로 합산돼요.</p>
- <div class="kitLabels"><span>구성품명</span><span>개당 원가</span><span>수량</span><span>배송비</span><span></span></div>
+ el('kitPanel').innerHTML=`<h2>세트상품 원가 계산</h2><p class="muted">구성품별 실제 매입 수량과 배송비를 합산하고, 제작할 세트 수량으로 나눠 1세트 원가를 계산해요.</p>
+ <div class="kitLabels"><span>구성품명</span><span>개당 원가</span><span>구매 수량</span><span>배송비</span><span></span></div>
  <div id="kitRows">${rows}</div><button class="kitAdd" id="kitAdd" type="button">＋ 구성품 추가하기</button>
- <div class="kitSubtotal"><span>세트 1개 재료비</span><b id="kitMaterials">${money(kit.materials)}</b></div>
+ <div class="kitSubtotal"><span>구성품 총 매입가</span><b id="kitMaterials">${money(kit.materials)}</b></div>
  <div class="fields kitExtras"><label class="field"><span>제작할 세트 수량</span><input data-kit-top="kitSetCount" inputmode="numeric" value="${safe(number(state.item.kitSetCount))}"></label>
  <label class="field"><span>세트당 포장비</span><input data-kit-top="kitPacking" inputmode="decimal" value="${safe(number(state.item.kitPacking).toLocaleString('ko-KR'))}"></label></div>
- <p class="muted">상품 총 매입가는 위 구성품의 매입가 × 입력 수량만 합산하며, 세트 수량으로 다시 곱하지 않습니다. 세트 수량은 배송비 배분과 전체 포장비 계산에 사용합니다. 실제 구매 수량과 세트당 사용 수량이 다르면 원가를 추가 확인해 주세요.</p>
+ <p class="muted">각 구성품의 구매 수량은 실제 도매 매입 수량입니다. 상품 총 매입가와 배송비를 합산한 다음 제작할 세트 수량으로 나눠 세트당 원가를 구합니다. 세트 수량에 따라 전체 포장비만 추가로 계산합니다. 일부 재료가 남거나 세트당 구성 비율이 다르면 실제 사용 원가가 달라질 수 있습니다.</p>
  <div class="kitSummary"><div><span>상품 총 매입가</span><b id="kitTotalGoods">${money(kit.materials)}</b></div>
  <div><span>구성품별 배송비 합계</span><b id="kitTotalShip">${money(kit.shipping)}</b></div>
  <div><span>배송비 포함 총 매입금액</span><b id="kitPurchaseTotal">${money(kit.totalPurchase)}</b></div>
  <div><span>전체 포장비 (세트 수량 × 세트당 포장비)</span><b id="kitTotalPacking">${money(kit.totalPacking)}</b></div>
  <div><span>매입금액 + 전체 포장비</span><b id="kitGrandTotal">${money(kit.grandTotal)}</b></div>
- <div class="kitCost"><span>배송비·포장비 포함 세트 원가</span><strong id="kitUnitCost">${kit.setCount>0?money(kit.materialCostPerSet+number(state.item.kitPacking)):'수량 확인 필요'}</strong></div></div>`;
+ <div class="kitCost"><span>배송비·포장비 포함 1세트 원가</span><strong id="kitUnitCost">${kit.setCount>0?money(kit.materialCostPerSet+number(state.item.kitPacking)):'수량 확인 필요'}</strong></div></div>`;
 }
 function refreshKitTotals(){
  if(state.item.mode!=='set')return;
@@ -70,7 +70,7 @@ function advancedFields(){return `<h3 class="advancedTitle">광고비 · 기타 
  field('광고비 방식','adMode','select',[['fixed','개당 원'],['percent','판매가 대비 %']]),
  ...(state.item.adMode==='fixed'?[field('광고비 (원)','adFixed')]:[field('광고비율 (%)','adPercent')]),
  field('고객에게 발송할 때 판매자 부담 배송비 (원 / 주문)','shipping'),
- field('예상 판매 수량 (개) · 총이익 계산용','salesQuantity'),
+ ...(state.item.mode==='set'?[]:[field('예상 판매 수량 (개) · 총이익 계산용','salesQuantity')]),
  field('주문당 판매 수량 (개)','unitsPerOrder'),
  field('기타 비용 (원 / 개)','other'),
  field('예상 세금 적립률 (%)','taxReserve'),
@@ -86,11 +86,12 @@ function results(){const item=state.item,p=getPlatform(),errors=validate(item,p)
 const r=calculate(item,p),step=number(item.roundStep)||100,kit=item.mode==='set'?setBreakdown(item):null;
 el('warning').textContent=(missing(p)?'⚠ 플랫폼 수수료 일부 미설정: 미입력 요율을 0%로 가정합니다. ':'')+(!kit&&number(item.shipping)>0&&number(item.purchaseShipping)===0?'⚠ 판매자 부담 배송비에 금액이 있습니다. 이 금액이 상품을 매입할 때 내는 배송료라면 위의 ‘매입 시 총 배송비’ 칸으로 옮겨 주세요. ':'')+(kit?'구성품별 배송비는 제작 세트 수량에 배분됩니다.':'매입 배송비는 전체 구매 수량으로 나눕니다.')+' 실제 세금·정산액과 다를 수 있습니다.';
 const priceText=obj=>obj.price===null?'<small>계산 불가</small>':money(ceilStep(obj.price,step));
-el('summary').innerHTML=[[(kit?'배송비 배분 후 세트 재료원가':'배송비 포함 개당 매입원가'),precise(r.costGoods),kit?`세트 재료비 ${money(kit.materials)} + 배송비 ${money(kit.shipping)} ÷ ${kit.setCount}세트`:`${precise(number(item.cost))} + ${money(number(item.purchaseShipping))} ÷ ${r.purchaseQty}개 = ${precise(r.costGoods)} (개당 배송비 ${precise(r.purchaseShippingPerUnit)})`,false],['손익분기 판매가',priceText(r.breakeven),r.breakeven.reason||'모든 예상 비용 회수 기준',false],['목표 '+item.targetMargin+'% 권장가',priceText(r.goal),r.goal.reason||`${step.toLocaleString()}원 단위 올림`,true],['현재 예상 이익',money(r.profit),'상품 1개당 · 소득세 차감 전',false],['현재 예상 순이익률',percent(r.margin),'배송비 수입을 포함한 총매출 대비',false]].map(([label,val,info,highlight],i)=>`<article class="metric ${highlight?'highlight':''}"><div class="label">${label}</div><div class="value ${i>=3?(r.profit<0?'negative':'positive'):''}">${val}</div><small>${safe(info)}</small></article>`).join('');
+el('summary').innerHTML=[[(kit?'세트 1개당 매입원가':'배송비 포함 개당 매입원가'),precise(r.costGoods),kit?`(재료비 ${money(kit.materials)} + 매입 배송비 ${money(kit.shipping)}) ÷ ${kit.setCount}세트 = ${precise(r.costGoods)}`:`${precise(number(item.cost))} + ${money(number(item.purchaseShipping))} ÷ ${r.purchaseQty}개 = ${precise(r.costGoods)} (개당 배송비 ${precise(r.purchaseShippingPerUnit)})`,false],['손익분기 판매가',priceText(r.breakeven),r.breakeven.reason||'모든 예상 비용 회수 기준',false],['목표 '+item.targetMargin+'% 권장가',priceText(r.goal),r.goal.reason||`${step.toLocaleString()}원 단위 올림`,true],[kit?'현재 판매가 기준 세트당 예상 이익':'현재 예상 이익',money(r.profit),kit?'세트 1개당 · 소득세 차감 전':'상품 1개당 · 소득세 차감 전',false],[kit?'현재 판매가 기준 세트당 이익률':'현재 예상 순이익률',percent(r.margin),'배송비 수입을 포함한 총매출 대비',false]].map(([label,val,info,highlight],i)=>`<article class="metric ${highlight?'highlight':''}"><div class="label">${label}</div><div class="value ${i>=3?(r.profit<0?'negative':'positive'):''}">${val}</div><small>${safe(info)}</small></article>`).join('');
 el('goals').innerHTML=r.goals.map(g=>`<div class="goalRow ${g.margin===number(item.targetMargin)?'active':''}"><span>목표 마진 <b>${g.margin}%</b></span><b>${g.price===null?`계산 불가 · ${safe(g.reason)}`:money(ceilStep(g.price,step))}</b></div>`).join('');
 const parts=[['상품 매입원가',r.costGoods,'#562452'],['플랫폼·결제 수수료',r.platformFee+r.cardFee,'#ae80ac'],['포장·배송·광고 등',r.otherCost,'#e9d0b6'],['예상 세금 적립액',r.taxReserve,'#d7a75b'],['예상 순이익',Math.max(0,r.profit),'#16805f']];const sum=parts.reduce((a,b)=>a+b[1],0);el('bar').innerHTML=`<div class="barTrack" role="img" aria-label="수익구성 그래프">${parts.map(([l,v,c])=>`<div title="${l}: ${money(v)}" class="barSeg" style="width:${sum?100*v/sum:0}%;background:${c}"></div>`).join('')}</div>${r.profit<0?`<p class="lossAlert">손실 ${money(-r.profit)} 발생 · 총비용이 매출보다 큽니다.</p>`:''}`;
 el('legend').innerHTML=`<div class="legendGrid">${parts.map(([l,v,c])=>`<span><i class="dot" style="background:${c}"></i>${l} ${money(v)}</span>`).join('')}</div>`;
-el('totals').innerHTML=[[(kit?'세트당 구성품 배송비 배분':'총매입 배송비 배분'),kit?`${money(kit.shipping)} ÷ ${kit.setCount}세트 = ${precise(kit.perSetShipping)}/세트`:`${money(number(item.purchaseShipping))} ÷ ${r.purchaseQty}개 = ${precise(r.purchaseShippingPerUnit)}/개`],['예상 판매 수량',r.units.toLocaleString()+'개'],['예상 총매출',money(r.totalRevenue)],['예상 총비용',money(r.totalCostAll)],['예상 총이익',money(r.totalProfit)]].map(([k,v])=>`<div class="totalRow"><span>${k}</span><b>${v}</b></div>`).join('');
+el('totals').innerHTML=(kit?[[`세트당 원가 (포장비 포함)`,precise(r.costGoods+number(item.kitPacking))],[`제작한 세트 수량`,kit.setCount.toLocaleString()+'개'],[`모두 판매 시 매출`,money(r.totalRevenue)],[`모두 판매 시 총비용 (수수료·광고·적립 포함)`,money(r.totalCostAll)],[`모두 판매 시 예상 이익`,money(r.totalProfit)]]:[['총매입 배송비 배분',`${money(number(item.purchaseShipping))} ÷ ${r.purchaseQty}개 = ${precise(r.purchaseShippingPerUnit)}/개`],['예상 판매 수량',r.units.toLocaleString()+'개'],['예상 총매출',money(r.totalRevenue)],['예상 총비용',money(r.totalCostAll)],['예상 총이익',money(r.totalProfit)]]).map(([k,v])=>`<div class="totalRow"><span>${k}</span><b>${v}</b></div>`).join('');
+if(kit)el('totals').innerHTML+='<p class="muted">※ 제작한 세트를 모두 판매한 경우를 가정한 예상 수익입니다. 미판매 재고·반품·실제 세금은 별도로 고려해야 합니다.</p>';
 el('taxMessage').textContent=`현재 사업자 유형: ${item.business}. 실제 예상 부가세: 계산 보류(신고 조건 미확인). 매입가 부가세 ${item.purchaseVATIncluded?'포함':'별도/미포함'} 표시를 보관하지만, 본 계산은 입력된 매입가 그대로를 원가로 사용합니다.`;
 el('comparison').innerHTML=PLATFORMS.map(name=>{const cp=state.platforms[name];if(missing(cp))return `<tr><td>${safe(name)}</td><td>${money(number(item.price))}</td><td colspan="4">수수료 미설정 · 요율 입력 후 비교 가능</td></tr>`;const rr=calculate(item,cp);return `<tr><td>${safe(name)}</td><td>${money(rr.p)}</td><td>${number(cp.fee)}% + 카드 ${cp.cardIncluded?'포함':number(cp.card)+'%'}</td><td class="${rr.profit<0?'negative':'positive'}">${money(rr.profit)}</td><td>${percent(rr.margin)}</td><td>${rr.goal.price===null?'계산 불가':money(ceilStep(rr.goal.price,step))}</td></tr>`}).join('');
 }
