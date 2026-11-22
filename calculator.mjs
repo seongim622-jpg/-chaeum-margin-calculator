@@ -15,7 +15,8 @@ export function setBreakdown(item) {
   const materials=rows.reduce((sum,r)=>sum+number(r.cost)*number(r.qty),0);
   const shipping=rows.reduce((sum,r)=>sum+number(r.shipping),0);
   const perSetShipping=setCount>0?shipping/setCount:0;
-  return {materials,shipping,setCount,perSetShipping,totalPurchase:materials*setCount+shipping,materialCostPerSet:materials+perSetShipping};
+  return {materials,shipping,setCount,perSetShipping,totalPurchase:materials+shipping,totalPacking:setCount*number(item.kitPacking),
+    grandTotal:materials+shipping+setCount*number(item.kitPacking),materialCostPerSet:materials+perSetShipping};
 }
 export function effectiveItem(item) {
   if(item.mode!=='set')return item;

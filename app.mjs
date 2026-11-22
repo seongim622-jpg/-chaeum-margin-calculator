@@ -36,7 +36,7 @@ function renderInputs(){
 function renderKit(){
  const kit=setBreakdown(state.item);
  const rows=(state.item.kitItems||[]).map((r,i)=>`<div class="kitRow" data-kit-row="${safe(r.id)}">
- <label class="kitName"><span class="srOnly">구성품명 ${i+1}</span><input data-kit-field="name" value="${safe(r.name)}" placeholder="구성품명"></label>
+ <label class="kitName"><span class="srOnly">구성품명 ${i+1}</span><input data-kit-field="name" type="text" lang="ko" inputmode="text" autocapitalize="off" autocomplete="off" spellcheck="false" value="${safe(r.name)}" placeholder="구성품명"></label>
  <label><span class="srOnly">개당 원가 ${i+1}</span><input data-kit-field="cost" inputmode="decimal" value="${safe(number(r.cost).toLocaleString('ko-KR'))}"></label>
  <label><span class="srOnly">세트당 수량 ${i+1}</span><input data-kit-field="qty" inputmode="numeric" value="${safe(number(r.qty).toLocaleString('ko-KR'))}"></label>
  <label><span class="srOnly">해당 구성품 총 매입 배송비 ${i+1}</span><input data-kit-field="shipping" inputmode="decimal" value="${safe(number(r.shipping).toLocaleString('ko-KR'))}"></label>
@@ -47,18 +47,21 @@ function renderKit(){
  <div class="kitSubtotal"><span>세트 1개 재료비</span><b id="kitMaterials">${money(kit.materials)}</b></div>
  <div class="fields kitExtras"><label class="field"><span>제작할 세트 수량</span><input data-kit-top="kitSetCount" inputmode="numeric" value="${safe(number(state.item.kitSetCount))}"></label>
  <label class="field"><span>세트당 포장비</span><input data-kit-top="kitPacking" inputmode="decimal" value="${safe(number(state.item.kitPacking).toLocaleString('ko-KR'))}"></label></div>
- <p class="muted">구성품별 배송비는 <b>입력한 세트 수량 전체에 필요한 재료를 한 번에 구매하는 경우</b>를 가정해 배분합니다. 실제 구매 수량이 다르면 원가가 달라질 수 있어요.</p>
- <div class="kitSummary"><div><span>상품 총 매입가</span><b id="kitTotalGoods">${money(kit.materials*kit.setCount)}</b></div>
+ <p class="muted">상품 총 매입가는 위 구성품의 매입가 × 입력 수량만 합산하며, 세트 수량으로 다시 곱하지 않습니다. 세트 수량은 배송비 배분과 전체 포장비 계산에 사용합니다. 실제 구매 수량과 세트당 사용 수량이 다르면 원가를 추가 확인해 주세요.</p>
+ <div class="kitSummary"><div><span>상품 총 매입가</span><b id="kitTotalGoods">${money(kit.materials)}</b></div>
  <div><span>구성품별 배송비 합계</span><b id="kitTotalShip">${money(kit.shipping)}</b></div>
  <div><span>배송비 포함 총 매입금액</span><b id="kitPurchaseTotal">${money(kit.totalPurchase)}</b></div>
+ <div><span>전체 포장비 (세트 수량 × 세트당 포장비)</span><b id="kitTotalPacking">${money(kit.totalPacking)}</b></div>
+ <div><span>매입금액 + 전체 포장비</span><b id="kitGrandTotal">${money(kit.grandTotal)}</b></div>
  <div class="kitCost"><span>배송비·포장비 포함 세트 원가</span><strong id="kitUnitCost">${kit.setCount>0?money(kit.materialCostPerSet+number(state.item.kitPacking)):'수량 확인 필요'}</strong></div></div>`;
 }
 function refreshKitTotals(){
  if(state.item.mode!=='set')return;
  const kit=setBreakdown(state.item);
  for(const [id,value] of Object.entries({
- kitMaterials:money(kit.materials),kitTotalGoods:money(kit.materials*kit.setCount),
+ kitMaterials:money(kit.materials),kitTotalGoods:money(kit.materials),
  kitTotalShip:money(kit.shipping),kitPurchaseTotal:money(kit.totalPurchase),
+ kitTotalPacking:money(kit.totalPacking),kitGrandTotal:money(kit.grandTotal),
  kitUnitCost:kit.setCount>0?money(kit.materialCostPerSet+number(state.item.kitPacking)):'수량 확인 필요'})){
  const node=el(id);if(node)node.textContent=value;
  }
@@ -97,7 +100,7 @@ function updateItem(key,value){if(key==='platform'){state.item.platform=value;re
 el('inputs').addEventListener('input',e=>{const t=e.target;if(!t.dataset.key)return;let value=t.type==='checkbox'?t.checked:t.value;if(t.dataset.numeric==='true'){const raw=value.replaceAll(',','');if(raw!==''&&(!/^\d*(\.\d*)?$/.test(raw)))return;t.value=raw===''?'':Number(raw).toLocaleString('en-US',{maximumFractionDigits:4});value=raw===''?0:Number(raw);}updateItem(t.dataset.key,value)});
 el('inputs').addEventListener('change',e=>{const t=e.target;if(t.tagName==='SELECT')updateItem(t.dataset.key,t.value);if(t.type==='checkbox')updateItem(t.dataset.key,t.checked)});
 el('kitPanel').addEventListener('input',e=>{
- const t=e.target;if(t.dataset.kitTop){
+ const t=e.target;if(t.dataset.kitField==='name' && e.isComposing)return;if(t.dataset.kitTop){
   const raw=t.value.replaceAll(',','');if(!/^\d*(\.\d*)?$/.test(raw))return;
   state.item[t.dataset.kitTop]=raw===''?0:Number(raw);
   if(t.dataset.kitTop==='kitSetCount')state.item.salesQuantity=Number(raw)||0;
@@ -108,6 +111,11 @@ el('kitPanel').addEventListener('input',e=>{
  if(key==='name')row[key]=t.value;
  else{const raw=t.value.replaceAll(',','');if(!/^\d*(\.\d*)?$/.test(raw))return;row[key]=raw===''?0:Number(raw);}
  results();refreshKitTotals();persist();
+});
+el('kitPanel').addEventListener('compositionend',e=>{
+ const t=e.target;if(t.dataset.kitField!=='name')return;
+ const row=state.item.kitItems.find(r=>String(r.id)===t.closest('[data-kit-row]')?.dataset.kitRow);
+ if(row){row.name=t.value;persist();}
 });
 el('kitPanel').addEventListener('click',e=>{
  if(e.target.closest('#kitAdd')){
