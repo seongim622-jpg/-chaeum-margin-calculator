@@ -9,7 +9,22 @@ const rate = x => number(x)/100;
  * Buying cost is conservatively kept at gross invoice amount even if purchaseVATIncluded is true.
  * No statutory VAT/income tax computed; taxReserve is only an internal reserve.
  */
+export function setBreakdown(item) {
+  const rows=Array.isArray(item.kitItems)?item.kitItems:[];
+  const setCount=number(item.kitSetCount);
+  const materials=rows.reduce((sum,r)=>sum+number(r.cost)*number(r.qty),0);
+  const shipping=rows.reduce((sum,r)=>sum+number(r.shipping),0);
+  const perSetShipping=setCount>0?shipping/setCount:0;
+  return {materials,shipping,setCount,perSetShipping,totalPurchase:materials*setCount+shipping,materialCostPerSet:materials+perSetShipping};
+}
+export function effectiveItem(item) {
+  if(item.mode!=='set')return item;
+  const kit=setBreakdown(item);
+  return {...item,cost:kit.materialCostPerSet,purchaseShipping:0,quantity:kit.setCount,
+    salesQuantity:kit.setCount,packing:number(item.kitPacking),packingBasis:'unit'};
+}
 export function calculate(item, platform={}, priceOverride) {
+  item=effectiveItem(item);
   const p = priceOverride === undefined ? number(item.price) : number(priceOverride);
   const qtyPerOrder = Math.max(1, Math.floor(number(item.unitsPerOrder) || 1));
   const units = Math.max(1, Math.floor(number(item.salesQuantity ?? item.quantity) || 1));
@@ -52,6 +67,17 @@ export function calculate(item, platform={}, priceOverride) {
 }
 export function validate(item, platform) {
   const errors=[];
+  if(item.mode==='set') {
+    const rows=Array.isArray(item.kitItems)?item.kitItems:[];
+    if(!rows.length)errors.push('세트 구성품을 최소 1개 추가하세요.');
+    if(number(item.kitSetCount)<1||!Number.isInteger(number(item.kitSetCount)))errors.push('제작할 세트 수량은 1 이상의 정수여야 합니다.');
+    if(number(item.kitPacking)<0)errors.push('세트당 포장비는 0원 이상이어야 합니다.');
+    for(const [i,r] of rows.entries()){
+      if(!Number.isInteger(number(r.qty))||number(r.qty)<1)errors.push(`구성품 ${i+1}의 세트당 수량은 1 이상의 정수여야 합니다.`);
+      if(number(r.cost)<0||number(r.shipping)<0)errors.push(`구성품 ${i+1}의 매입가·배송비를 확인하세요.`);
+    }
+  }
+  item=effectiveItem(item);
   const moneyFields=['cost','purchaseShipping','price','quantity','salesQuantity','unitsPerOrder','packing','shipping','buyerShipping','other','adFixed'];
   for (const key of moneyFields) if (!Number.isFinite(number(item[key])) || number(item[key])<0) errors.push(`${key}: 음수 또는 잘못된 금액`);
   if (number(item.quantity)<1 || !Number.isInteger(number(item.quantity))) errors.push('예상 구매 수량은 1 이상의 정수여야 합니다.');
